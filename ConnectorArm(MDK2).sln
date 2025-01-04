@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35004.147
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConnectorArm(MDK2)", "ConnectorArm(MDK2)\ConnectorArm(MDK2).csproj", "{D3BB724B-1E33-4816-9BBC-68EE4518A56A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D3BB724B-1E33-4816-9BBC-68EE4518A56A}.Debug|x64.ActiveCfg = Debug|x64
+		{D3BB724B-1E33-4816-9BBC-68EE4518A56A}.Debug|x64.Build.0 = Debug|x64
+		{D3BB724B-1E33-4816-9BBC-68EE4518A56A}.Release|x64.ActiveCfg = Release|x64
+		{D3BB724B-1E33-4816-9BBC-68EE4518A56A}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {EFE84AB1-C6AF-41B8-AB09-B0CC5BC9CFE3}
+	EndGlobalSection
+EndGlobal
