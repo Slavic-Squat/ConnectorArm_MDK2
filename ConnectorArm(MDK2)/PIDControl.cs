@@ -24,56 +24,45 @@ namespace IngameScript
     {
         public class PIDControl
         {
-            public float Kp { get; }
-            public float Ki { get; }
-            public float Kd { get; }
+            private float _kp;
+            private float _ki;
+            private float _kd;
 
-            public float integralValue = 0;
-            public float priorValue = 0;
+            private float _integralValue;
+            private float _priorValue;
 
-            public PIDControl(float Kp, float Ki, float Kd)
+            private float _minInt;
+            private float _maxInt;
+
+            public PIDControl(float kp, float ki, float kd, float minInt = float.MinValue, float maxInt = float.MaxValue)
             {
-                this.Kp = Kp;
-                this.Ki = Ki;
-                this.Kd = Kd;
+                _kp = kp;
+                _ki = ki;
+                _kd = kd;
+                _minInt = minInt;
+                _maxInt = maxInt;
             }
 
             public float Run(float input, float timeDelta)
             {
-                if (timeDelta == 0 || input == 0)
+                if (timeDelta == 0 || input == 0 || float.IsNaN(input) || float.IsNaN(timeDelta))
                 {
-                    return input;
+                    return 0;
                 }
 
-                float differencial = (input - priorValue) / timeDelta;
-                priorValue = input;
-                float result = Kp * input + Ki * integralValue + Kd * differencial;
+                float differencial = (input - _priorValue) / timeDelta;
+                _priorValue = input;
+                GetIntegral(input, timeDelta);
+                float result = _kp * input + _ki * _integralValue + _kd * differencial;
 
                 return result;
             }
 
-            public virtual void GetIntegral(float input, float timeDelta)
+            public void GetIntegral(float input, float timeDelta)
             {
-                integralValue += (input * timeDelta);
+                _integralValue = MathHelper.Clamp(_integralValue + input * timeDelta, _minInt, _maxInt);
             }
 
-        }
-
-        public class ClampedIntegralPIDControl : PIDControl
-        {
-            float lowerLimit;
-            float upperLimit;
-            public ClampedIntegralPIDControl(float Kp, float Ki, float Kd, float lowerLimit, float upperLimit) : base(Kp, Ki, Kd)
-            {
-                this.lowerLimit = lowerLimit;
-                this.upperLimit = upperLimit;
-            }
-
-            public override void GetIntegral(float input, float timeDelta)
-            {
-                base.GetIntegral(input, timeDelta);
-                integralValue = Math.Max(lowerLimit, Math.Min(upperLimit, integralValue));
-            }
         }
     }
 }
