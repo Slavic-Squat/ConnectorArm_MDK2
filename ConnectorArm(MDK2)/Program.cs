@@ -24,6 +24,7 @@ namespace IngameScript
     {
         private SystemCoordinator _systemCoordinator;
         public static Action<string> DebugEcho { get; private set; }
+        public static DebugAPI DebugDraw { get; private set; }
         public static IMyProgrammableBlock MePB { get; private set; }
         public static IMyGridTerminalSystem GTS { get; private set; }
         public static IMyIntergridCommunicationSystem IGCS { get; private set; }
@@ -38,6 +39,7 @@ namespace IngameScript
             IGCS = IGC;
             MePB = Me;
             DebugEcho = Echo;
+            DebugDraw = new DebugAPI(this, true);
             RuntimeInfo = Runtime;
 
             _systemCoordinator = new SystemCoordinator();
