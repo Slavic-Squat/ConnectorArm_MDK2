@@ -22,14 +22,25 @@ namespace IngameScript
 {
     partial class Program : MyGridProgram
     {
-        MyCommandLine commandLine = new MyCommandLine();
-        Dictionary<string, Action<string>> commandDictionary = new Dictionary<string, Action<string>>();
-        ConnectorCraneArm connectorArm;
+        private SystemCoordinator _systemCoordinator;
+        public static Action<string> DebugEcho { get; private set; }
+        public static IMyProgrammableBlock MePB { get; private set; }
+        public static IMyGridTerminalSystem GTS { get; private set; }
+        public static IMyIntergridCommunicationSystem IGCS { get; private set; }
+        public static IMyGridProgramRuntimeInfo RuntimeInfo { get; private set; }
+
+        public static int DebugCounter { get; set; } = 0;
+
         public Program()
         {
-            Runtime.UpdateFrequency = UpdateFrequency.Update1;
-            connectorArm = new ConnectorCraneArm(this, 0);
-            commandDictionary["EndEffectorControl"] = connectorArm.endEffectorControl;
+            Runtime.UpdateFrequency = UpdateFrequency.None;
+            GTS = GridTerminalSystem;
+            IGCS = IGC;
+            MePB = Me;
+            DebugEcho = Echo;
+            RuntimeInfo = Runtime;
+
+            _systemCoordinator = new SystemCoordinator();
         }
 
         public void Save()
@@ -39,22 +50,11 @@ namespace IngameScript
 
         public void Main(string argument, UpdateType updateSource)
         {
-            if (commandLine.TryParse(argument))
+            if (argument != null)
             {
-                string commandName = commandLine.Argument(0);
-                string commandArgument = commandLine.Argument(1);
-                Action<string> command;
-
-                if (commandName != null && commandArgument != null)
-                {
-                    if (commandDictionary.TryGetValue(commandName, out command))
-                    {
-                        command(commandArgument);
-                    }
-                }
+                //_systemCoordinator.Command(argument);
             }
-
-            connectorArm.Run();
+            _systemCoordinator.Run();
         }
     }
 }

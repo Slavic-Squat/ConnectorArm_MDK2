@@ -24,556 +24,205 @@ namespace IngameScript
     {
         public class CraneArm
         {
-            private int ID;
-            private Program program;
-            private IMyShipController controller;
-            private IMyMotorAdvancedStator joint0Rotor;
-            private bool joint0RotorInv;
-            private IMyMotorAdvancedStator joint1Rotor;
-            private bool joint1RotorInv;
-            private IMyMotorAdvancedStator joint2Rotor;
-            private bool joint2RotorInv;
-            private IMyMotorAdvancedStator eePitchHinge;
-            private bool eePitchHingeInv;
-            private IMyMotorAdvancedStator eeYawRotor;
-            private bool eeYawRotorInv;
-            private IMyMotorAdvancedStator eeRollRotor;
-            private bool eeRollRotorInv;
+            private Rotor _joint0;
+            private Rotor _joint1;
+            private Vector3 _seg1Vector;
+            private Rotor _joint2;
+            private Vector3 _seg2Vector;
+            private Rotor _eePitchJoint;
+            private Rotor _eeYawJoint;
+            private Rotor _eeRollJoint;
 
-            private Vector3 targetCoord;
-            private Vector3 targetCoordPrev;
+            private float _sensitivity;
+            private float _speed;
+            private bool _cylindricalMode;
+            private bool _OOB = false;
 
-            private float joint0Angle;
-            private float joint0LowerLimit;
-            private float joint0UpperLimit;
-            private float joint0TargetAngle;
+            private Vector3 _targetCoord;
+            private Matrix _targetEEO_base;
 
-            private float joint1Angle;
-            private float joint1LowerLimit;
-            private float joint1UpperLimit;
-            private float joint1TargetAngle;
+            public bool EEControlled { get; private set; } = false;
+            public bool ArmControlled { get; private set; } = true;
 
-            private float joint2Angle;
-            private float joint2LowerLimit;
-            private float joint2UpperLimit;
-            private float joint2TargetAngle;
-
-            private Vector3 seg0Vector;
-            private float seg0Length;
-            private Vector3 seg1Vector;
-            private float seg1Length;
-
-            private float eePitchAngle;
-            private float eePitchLowerLimit;
-            private float eePitchUpperLimit;
-            private float eePitchTargetAngle;
-
-            private float eeYawAngle;
-            private float eeYawLowerLimit;
-            private float eeYawUpperLimit;
-            private float eeYawTargetAngle;
-
-            private float eeRollAngle;
-            private float eeRollLowerLimit;
-            private float eeRollUpperLimit;
-            private float eeRollTargetAngle;
-
-            private float targetYaw_base;
-            private float targetPitch_base;
-            private float targetRoll_base;
-
-            private float sensitivity;
-            private float speed;
-            private bool cylindricalMode;
-            private bool OOB = false;
-            public bool eeControlled = true;
-            public bool armControlled = true;
-
-            public CraneArm(Program program, int ID, IMyShipController controller, float sensitivity, float speed, bool cylindricalMode)
+            public CraneArm(float sensitivity, float speed, bool cylindricalMode, float seg1Length, float seg2Length)
             {
-                this.program = program;
-                this.ID = ID;
-                this.controller = controller;
+                _joint0 = new Rotor("Joint0");
+                _joint1 = new Rotor("Joint1");
+                _joint2 = new Rotor("Joint2");
+                _eePitchJoint = new Rotor("EE Pitch Joint");
+                _eeYawJoint = new Rotor("EE Yaw Joint");
+                _eeRollJoint = new Rotor("EE Roll Joint");
 
-                joint0Rotor = (IMyMotorAdvancedStator)program.GridTerminalSystem.GetBlockWithName($"Crane Joint0 Rotor0 [{ID}]");
-                joint1Rotor = (IMyMotorAdvancedStator)program.GridTerminalSystem.GetBlockWithName($"Crane Joint1 Rotor0 [{ID}]");
-                joint2Rotor = (IMyMotorAdvancedStator)program.GridTerminalSystem.GetBlockWithName($"Crane Joint2 Rotor0 [{ID}]");
-                eePitchHinge = (IMyMotorAdvancedStator)program.GridTerminalSystem.GetBlockWithName($"End Effector Pitch Hinge [{ID}]");
-                eeYawRotor = (IMyMotorAdvancedStator)program.GridTerminalSystem.GetBlockWithName($"End Effector Yaw Rotor [{ID}]");
-                eeRollRotor = (IMyMotorAdvancedStator)program.GridTerminalSystem.GetBlockWithName($"End Effector Roll Rotor [{ID}]");
+                _sensitivity = sensitivity;
+                _speed = speed;
+                _cylindricalMode = cylindricalMode;
 
-                this.sensitivity = sensitivity;
-                this.speed = speed;
-                this.cylindricalMode = cylindricalMode;
+                _seg1Vector = new Vector3(0, 0, -seg1Length);
+                _seg2Vector = new Vector3(0, 0, -seg2Length);
 
-                
-
-                joint0RotorInv = joint0Rotor.CustomData.Contains("Inverted");
-                joint1RotorInv = joint1Rotor.CustomData.Contains("Inverted");
-                joint2RotorInv = joint2Rotor.CustomData.Contains("Inverted");
-                eePitchHingeInv = eePitchHinge.CustomData.Contains("Inverted");
-                eeYawRotorInv = eeYawRotor.CustomData.Contains("Inverted");
-                eeRollRotorInv = eeRollRotor.CustomData.Contains("Inverted");
-
-                seg0Vector = new Vector3(0, 0, 0);
-                seg1Vector = new Vector3(0, 0, 0);
-
-                this.Init(); 
+                Init();
             }
 
-            public void Init()
+            private void Init()
             {
-                joint0Angle = joint0RotorInv ? -joint0Rotor.Angle : joint0Rotor.Angle;
-                joint0Angle = Math.Abs(joint0Angle) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(joint0Angle)) * -Math.Sign(joint0Angle) : joint0Angle;
-                joint0LowerLimit = joint0RotorInv ? -joint0Rotor.UpperLimitRad : joint0Rotor.LowerLimitRad;
-                joint0UpperLimit = joint0RotorInv ? -joint0Rotor.LowerLimitRad : joint0Rotor.UpperLimitRad;
+                Matrix H0 = Matrix.CreateRotationY(_joint0.CurrentAngle);
+                Matrix H1 = Matrix.CreateRotationX(_joint1.CurrentAngle);
+                H1.Translation = new Vector3(0, 2.5f, 0);
+                Matrix H2 = Matrix.CreateRotationX(_joint2.CurrentAngle);
+                H2.Translation = _seg1Vector;
+                Matrix H3 = Matrix.Identity;
+                H3.Translation = _seg2Vector;
 
-                joint1Angle = joint1RotorInv ? -joint1Rotor.Angle : joint1Rotor.Angle;
-                joint1Angle = Math.Abs(joint1Angle) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(joint1Angle)) * -Math.Sign(joint1Angle) : joint1Angle;
-                joint1LowerLimit = joint1RotorInv ? -joint1Rotor.UpperLimitRad : joint1Rotor.LowerLimitRad;
-                joint1UpperLimit = joint1RotorInv ? -joint1Rotor.LowerLimitRad : joint1Rotor.UpperLimitRad;
+                Matrix HT = H3 * H2 * H1 * H0;
+                Vector3 currentCoord = HT.Translation;
+                _targetCoord = currentCoord;
 
-                joint2Angle = joint2RotorInv ? -joint2Rotor.Angle : joint2Rotor.Angle;
-                joint2Angle = Math.Abs(joint2Angle) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(joint2Angle)) * -Math.Sign(joint2Angle) : joint2Angle;
-                joint2LowerLimit = joint2RotorInv ? -joint2Rotor.UpperLimitRad : joint2Rotor.LowerLimitRad;
-                joint2UpperLimit = joint2RotorInv ? -joint2Rotor.LowerLimitRad : joint2Rotor.UpperLimitRad;
-
-                eePitchAngle = eePitchHingeInv ? -eePitchHinge.Angle : eePitchHinge.Angle;
-                eePitchAngle += (float)Math.PI / 2;
-                eePitchAngle = Math.Abs(eePitchAngle) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(eePitchAngle)) * -Math.Sign(eePitchAngle) : eePitchAngle;
-                eePitchLowerLimit = eePitchHingeInv ? -eePitchHinge.UpperLimitRad : eePitchHinge.LowerLimitRad;
-                eePitchLowerLimit += (float)Math.PI / 2;
-                eePitchUpperLimit = eePitchHingeInv ? -eePitchHinge.LowerLimitRad : eePitchHinge.UpperLimitRad;
-                eePitchUpperLimit += (float)Math.PI / 2;
-
-                eeYawAngle = eeYawRotorInv ? -eeYawRotor.Angle : eeYawRotor.Angle;
-                eeYawAngle = Math.Abs(eeYawAngle) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(eeYawAngle)) * -Math.Sign(eeYawAngle) : eeYawAngle;
-                eeYawLowerLimit = eeYawRotorInv ? -eeYawRotor.UpperLimitRad : eeYawRotor.LowerLimitRad;
-                eeYawUpperLimit = eeYawRotorInv ? -eeYawRotor.LowerLimitRad : eeYawRotor.UpperLimitRad;
-
-                eeRollAngle = eeRollRotorInv ? -eeRollRotor.Angle : eeRollRotor.Angle;
-                eeRollAngle = Math.Abs(eeRollAngle) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(eeRollAngle)) * -Math.Sign(eeRollAngle) : eeRollAngle;
-                eeRollLowerLimit = eeRollRotorInv ? -eeRollRotor.UpperLimitRad : eeRollRotor.LowerLimitRad;
-                eeRollUpperLimit = eeRollRotorInv ? -eeRollRotor.LowerLimitRad : eeRollRotor.UpperLimitRad;
-
-                seg0Length = seg0Vector.Length();
-                seg1Length = seg1Vector.Length();
-
-                Matrix H0 = Matrix.CreateRotationY(joint0Angle);
-                Matrix H1 = Matrix.CreateRotationX(joint1Angle);
-                Matrix H2 = Matrix.CreateRotationX(joint2Angle);
-                H2.Translation = seg0Vector;
-                Matrix H3 = Matrix.CreateRotationX(-(float)Math.PI / 2);
-                H3.Translation = seg1Vector;
-
-                if (cylindricalMode == false)
+                if (!EEControlled)
                 {
-                    Matrix HT = H3 * H2 * H1 * H0;
-                    targetCoord = HT.Translation;
-
-                    Matrix R0_ee = Matrix.CreateRotationY(eeYawAngle);
-                    Matrix R1_ee = Matrix.CreateRotationX(eePitchAngle);
-                    Matrix R2_ee = Matrix.CreateRotationZ(eeRollAngle);
-                    Matrix RT_ee = R2_ee * R1_ee * R0_ee;
-                    Matrix RT_base = RT_ee * HT;
-
-                    targetPitch_base = (float)Math.Asin(-RT_base.M32);
-                    if (Math.Round(RT_base.M32, 2) == -1)
-                    {
-                        targetRoll_base = 0;
-                        targetYaw_base = (float)Math.Atan2(RT_base.M21, RT_base.M11);
-                    }
-                    else if (Math.Round(RT_base.M32, 2) == 1)
-                    {
-                        targetRoll_base = 0;
-                        targetYaw_base = (float)Math.Atan2(-RT_base.M21, RT_base.M11);
-                    }
-                    else
-                    {
-                        targetRoll_base = (float)Math.Atan2(RT_base.M12, RT_base.M22);
-                        targetYaw_base = (float)Math.Atan2(RT_base.M31, RT_base.M33);
-                    }
-                }
-                else
-                {
-                    Matrix HT = H3 * H2 * H1;
-                    targetCoord = HT.Translation;
-
-                    Matrix R0_ee = Matrix.CreateRotationY(eeYawAngle);
-                    Matrix R1_ee = Matrix.CreateRotationX(eePitchAngle);
-                    Matrix R2_ee = Matrix.CreateRotationZ(eeRollAngle);
-                    Matrix RT_ee = R2_ee * R1_ee * R0_ee;
-                    Matrix RT_base = RT_ee * HT;
-
-                    targetPitch_base = (float)Math.Asin(-RT_base.M32);
-                    if (Math.Round(RT_base.M32, 2) == -1)
-                    {
-                        targetRoll_base = 0;
-                        targetYaw_base = (float)Math.Atan2(RT_base.M21, RT_base.M11);
-                    }
-                    else if (Math.Round(RT_base.M32, 2) == 1)
-                    {
-                        targetRoll_base = 0;
-                        targetYaw_base = (float)Math.Atan2(-RT_base.M21, RT_base.M11);
-                    }
-                    else
-                    {
-                        targetRoll_base = (float)Math.Atan2(RT_base.M12, RT_base.M22);
-                        targetYaw_base = (float)Math.Atan2(RT_base.M31, RT_base.M33);
-                    }
+                    LockEEO(HT);
                 }
             }
 
-            public void Run()
+            public void Control(UserInput input)
             {
-                joint0Angle = joint0RotorInv ? -joint0Rotor.Angle : joint0Rotor.Angle;
-                joint0Angle = Math.Abs(joint0Angle) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(joint0Angle)) * -Math.Sign(joint0Angle) : joint0Angle;
+                Matrix H0 = Matrix.CreateRotationY(_joint0.CurrentAngle);
+                Matrix H1 = Matrix.CreateRotationX(_joint1.CurrentAngle);
+                H1.Translation = new Vector3(0, 2.5f, 0);
+                Matrix H2 = Matrix.CreateRotationX(_joint2.CurrentAngle);
+                H2.Translation = _seg1Vector;
+                Matrix H3 = Matrix.Identity;
+                H3.Translation = _seg2Vector;
 
-                joint1Angle = joint1RotorInv ? -joint1Rotor.Angle : joint1Rotor.Angle;
-                joint1Angle = Math.Abs(joint1Angle) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(joint1Angle)) * -Math.Sign(joint1Angle) : joint1Angle;
+                Matrix HT = H3 * H2 * H1 * H0;
+                Vector3 currentCoord = HT.Translation;
 
-                joint2Angle = joint2RotorInv ? -joint2Rotor.Angle : joint2Rotor.Angle;
-                joint2Angle = Math.Abs(joint2Angle) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(joint2Angle)) * -Math.Sign(joint2Angle) : joint2Angle;
+                float minTargetDistance = (_seg1Vector - _seg2Vector).Length() + 1;
+                float maxTargetDistance = (_seg1Vector + _seg2Vector).Length();
 
-                eePitchAngle = eePitchHingeInv ? -eePitchHinge.Angle : eePitchHinge.Angle;
-                eePitchAngle += (float)Math.PI / 2;
-                eePitchAngle = Math.Abs(eePitchAngle) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(eePitchAngle)) * -Math.Sign(eePitchAngle) : eePitchAngle;
+                if (EEControlled == true)
+                {
+                    _eeYawJoint.Velocity = -0.01f * _sensitivity * input.MouseInput.Y;
+                    _eePitchJoint.Velocity = -0.01f * _sensitivity * input.MouseInput.X;
+                    _eeRollJoint.Velocity = input.QPress ? -0.05f * _sensitivity : input.EPress ? 0.05f * _sensitivity : 0f;
+                }
 
-                eeYawAngle = eeYawRotorInv ? -eeYawRotor.Angle : eeYawRotor.Angle;
-                eeYawAngle = Math.Abs(eeYawAngle) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(eeYawAngle)) * -Math.Sign(eeYawAngle) : eeYawAngle;
+                _targetCoord.Z += input.WPress ? -0.05f * _sensitivity : input.SPress ? 0.05f * _sensitivity : 0f;
+                _targetCoord.Y += input.CPress ? -0.05f * _sensitivity : input.SpacePress ? 0.05f * _sensitivity : 0f;
+                _targetCoord.X += input.APress ? -0.05f * _sensitivity : input.DPress ? 0.05f * _sensitivity : 0f;
 
-                eeRollAngle = eeRollRotorInv ? -eeRollRotor.Angle : eeRollRotor.Angle;
-                eeRollAngle = Math.Abs(eeRollAngle) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(eeRollAngle)) * -Math.Sign(eeRollAngle) : eeRollAngle;
+                float targetDistance = _targetCoord.Length();
 
-                float minTargetDistance = Math.Abs(seg1Length - seg0Length) + 1;
-                float maxTargetDistance = seg0Length + seg1Length;
+                float X = ((targetDistance * targetDistance) - Vector3.Dot(_seg2Vector, _seg2Vector) + Vector3.Dot(_seg1Vector, _seg1Vector)) / (2 * targetDistance);
+                float Y = (float)Math.Sqrt(Vector3.Dot(_seg1Vector, _seg1Vector) - (X * X));
+
+                float joint0Target = (float)Math.Atan2(-_targetCoord.X, -_targetCoord.Z);
+                float joint1Target = (float)Math.Atan2(Y, X) + (float)Math.Asin(MathHelper.Clamp(_targetCoord.Y / targetDistance, -1f, 1f));
+                float joint2Target = (float)Math.Atan2(0 - Y, targetDistance - X) - (float)Math.Atan2(Y, X);
+
+                if (targetDistance > maxTargetDistance || targetDistance < minTargetDistance)
+                {
+                    _OOB = true;
+                    _targetCoord = currentCoord;
+                    return;
+                }
+                if (joint0Target < _joint0.MinAngle || joint0Target > _joint0.MaxAngle)
+                {
+                    _OOB = true;
+                    _targetCoord = currentCoord;
+                    return;
+                }
+                if (joint1Target < _joint1.MinAngle || joint1Target > _joint1.MaxAngle)
+                {
+                    _OOB = true;
+                    _targetCoord = currentCoord;
+                    return;
+                }
+                if (joint2Target < _joint2.MinAngle || joint2Target > _joint2.MaxAngle)
+                {
+                    _OOB = true;
+                    _targetCoord = currentCoord;
+                    return;
+                }
+
+                if (!EEControlled)
+                {
+                    Matrix H0T = Matrix.CreateRotationY(joint0Target);
+                    Matrix H1T = Matrix.CreateRotationX(joint1Target);
+                    Matrix H2T = Matrix.CreateRotationX(joint2Target);
+                    H2T.Translation = _seg1Vector;
+                    Matrix H3T = Matrix.Identity;
+                    H3T.Translation = _seg2Vector;
+
+                    Matrix HTT = H3 * H2 * H1 * H0;
+
+
+                    Matrix targetEEO_ee = _targetEEO_base * Matrix.Transpose(HTT.GetOrientation());
+                    float targetPitch = (float)Math.Asin(MathHelper.Clamp(-targetEEO_ee.M32, -1f, 1f));
+                    float targetYaw;
+                    float targetRoll;
+
+                    float epsilon = 0.001f;
+                    if (targetEEO_ee.M32 < -1 + epsilon)
+                    {
+                        targetRoll = 0;
+                        targetYaw = (float)Math.Atan2(targetEEO_ee.M21, targetEEO_ee.M11);
+                    }
+                    else if (targetEEO_ee.M32 > 1 - epsilon)
+                    {
+                        targetRoll = 0;
+                        targetYaw = (float)Math.Atan2(-targetEEO_ee.M21, targetEEO_ee.M11);
+                    }
+                    else
+                    {
+                        targetRoll = (float)Math.Atan2(targetEEO_ee.M12, targetEEO_ee.M22);
+                        targetYaw = (float)Math.Atan2(targetEEO_ee.M31, targetEEO_ee.M33);
+                    }
+
+                    float yawError = targetYaw - _eeYawJoint.CurrentAngle;
+                    yawError = MiscUtilities.LoopInRange(yawError, -(float)Math.PI, (float)Math.PI);
+
+                    float pitchError = targetPitch - _eePitchJoint.CurrentAngle;
+                    pitchError = MiscUtilities.LoopInRange(pitchError, -(float)Math.PI, (float)Math.PI);
+
+                    float rollError = targetRoll - _eeRollJoint.CurrentAngle;
+                    rollError = MiscUtilities.LoopInRange(rollError, -(float)Math.PI, (float)Math.PI);
+
+                    if (!float.IsNaN(yawError) && !float.IsNaN(pitchError) && !float.IsNaN(rollError))
+                    {
+                        _eeYawJoint.Velocity = yawError * _speed;
+                        _eePitchJoint.Velocity = pitchError * _speed;
+                        _eeRollJoint.Velocity = rollError * _speed;
+                    }
+                }
                 
-                if (controller.RotationIndicator.X != 0 && eeControlled == true)
+
+                float joint0Error = joint0Target - _joint0.CurrentAngle;
+                joint0Error = MiscUtilities.LoopInRange(joint0Error, -(float)Math.PI, (float)Math.PI);
+
+                float joint1Error = joint1Target - _joint1.CurrentAngle;
+                joint1Error = MiscUtilities.LoopInRange(joint1Error, -(float)Math.PI, (float)Math.PI);
+
+                float joint2Error = joint2Target - _joint2.CurrentAngle;
+                joint2Error = MiscUtilities.LoopInRange(joint2Error, -(float)Math.PI, (float)Math.PI);
+
+                
+
+                if (!float.IsNaN(joint0Error) && !float.IsNaN(joint1Error) && !float.IsNaN(joint2Error))
                 {
-                    targetPitch_base -= 0.05f * sensitivity * controller.RotationIndicator.X;
+                    _joint0.Velocity = joint0Error * _speed;
+                    _joint1.Velocity = joint1Error * _speed;
+                    _joint2.Velocity = joint2Error * _speed;
                 }
-                if (controller.RotationIndicator.Y != 0 && eeControlled == true)
-                {
-                    targetYaw_base -= 0.05f * sensitivity * controller.RotationIndicator.Y;
-                }
-                if (controller.RollIndicator != 0 && eeControlled == true)
-                {
-                    targetRoll_base -= 0.05f * sensitivity * controller.RollIndicator;
-                }
+            }
 
-                targetPitch_base = (float)Math.Min(Math.Max(-Math.PI / 2, targetPitch_base), Math.PI / 2);
-                targetRoll_base = Math.Abs(targetRoll_base) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(targetRoll_base)) * -Math.Sign(targetRoll_base) : targetRoll_base;
-                targetYaw_base = Math.Abs(targetYaw_base) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(targetYaw_base)) * -Math.Sign(targetYaw_base) : targetYaw_base;
-
-                if (cylindricalMode == false)
-                {
-                    if (controller.MoveIndicator.Z != 0)
-                    {
-                        targetCoord.Z += sensitivity * controller.MoveIndicator.Z;
-                    }
-
-                    if (controller.MoveIndicator.Y != 0)
-                    {
-                        targetCoord.Y += sensitivity * controller.MoveIndicator.Y;
-                    }
-
-                    if (controller.MoveIndicator.X != 0)
-                    {
-                        targetCoord.X += sensitivity * controller.MoveIndicator.X;
-                    }
-
-                    float targetDistance = targetCoord.Length();
-
-                    if (targetDistance > maxTargetDistance || targetDistance < minTargetDistance)
-                    {
-                        OOB = true;
-                        goto OutOfBounds;
-                    }
-
-                    float X = ((targetDistance * targetDistance) - (seg1Length * seg1Length) + (seg0Length * seg0Length)) / (2 * targetDistance);
-                    float Y = (float)Math.Sqrt((seg0Length * seg0Length) - (X * X));
-                    
-                    joint0TargetAngle = (float)Math.Atan2(-targetCoord.X, -targetCoord.Z);
-                    if (joint0TargetAngle < joint0LowerLimit || joint0TargetAngle > joint0UpperLimit)
-                    {
-                        OOB = true;
-                        goto OutOfBounds;
-                    }
-                    joint1TargetAngle = (float)Math.Atan2(Y, X);
-                    if (joint1TargetAngle < joint1LowerLimit || joint1TargetAngle > joint1UpperLimit)
-                    {
-                        OOB = true;
-                        goto OutOfBounds;
-                    }
-                    joint2TargetAngle = (float)Math.Atan2((0 - Y), (targetDistance - X)) - joint1TargetAngle;
-                    if (joint2TargetAngle < joint2LowerLimit || joint2TargetAngle > joint2UpperLimit)
-                    {
-                        OOB = true;
-                        goto OutOfBounds;
-                    }
-
-                    Matrix H0 = Matrix.CreateRotationY(joint0TargetAngle);
-                    Matrix H1 = Matrix.CreateRotationX(joint1TargetAngle);
-                    Matrix H2 = Matrix.CreateRotationX(joint2TargetAngle);
-                    H2.Translation = seg0Vector;
-                    Matrix H3 = Matrix.CreateRotationX(-(float)Math.PI / 2);
-                    H3.Translation = seg1Vector;
-
-                    Matrix HT = H3 * H2 * H1 * H0;
-
-                    Matrix R0_base = Matrix.CreateRotationY(targetYaw_base);
-                    Matrix R1_base = Matrix.CreateRotationX(targetPitch_base);
-                    Matrix R2_base = Matrix.CreateRotationZ(targetRoll_base);
-                    Matrix RT_base = R2_base * R1_base * R0_base;
-                    Matrix RT_ee = RT_base * Matrix.Transpose(HT.GetOrientation());
-                    float targetPitch_ee = (float)Math.Asin(-RT_ee.M32);
-                    float targetYaw_ee;
-                    float targetRoll_ee;
-                    if (Math.Round(RT_ee.M32, 2) == -1)
-                    {
-                        targetRoll_ee = 0;
-                        targetYaw_ee = (float)Math.Atan2(RT_ee.M21, RT_ee.M11);
-                    }
-                    else if (Math.Round(RT_ee.M32, 2) == 1)
-                    {
-                        targetRoll_ee = 0;
-                        targetYaw_ee = (float)Math.Atan2(-RT_ee.M21, RT_ee.M11);
-                    }
-                    else
-                    {
-                        targetRoll_ee = (float)Math.Atan2(RT_ee.M12, RT_ee.M22);
-                        targetYaw_ee = (float)Math.Atan2(RT_ee.M31, RT_ee.M33);
-                    }
-
-                    eeYawTargetAngle = targetYaw_ee;
-                    if (eeYawTargetAngle < eeYawLowerLimit || eeYawTargetAngle > eeYawUpperLimit)
-                    {
-                        OOB = true;
-                        goto OutOfBounds;
-                    }
-                    eePitchTargetAngle = targetPitch_ee;
-                    if (eePitchTargetAngle < eePitchLowerLimit || eePitchTargetAngle > eePitchUpperLimit)
-                    {
-                        OOB = true;
-                        goto OutOfBounds;
-                    }
-                    eeRollTargetAngle = targetRoll_ee;
-                    if (eeRollTargetAngle < eeRollLowerLimit || eeRollTargetAngle > eeRollUpperLimit)
-                    {
-                        OOB = true;
-                        goto OutOfBounds;
-                    }
-
-                    targetCoordPrev = targetCoord;
-
-                    OutOfBounds:
-                    
-                    if (OOB)
-                    {
-                        program.Echo("OOB");
-                        targetCoord = targetCoordPrev;
-                        OOB = false;
-                    }
-                    
-
-                    float joint0AngleError = joint0TargetAngle - joint0Angle;
-                    joint0AngleError = Math.Abs(joint0AngleError) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(joint0AngleError)) * -Math.Sign(joint0AngleError) : joint0AngleError;
-
-                    float joint1AngleError = joint1TargetAngle - joint1Angle;
-                    joint1AngleError = Math.Abs(joint1AngleError) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(joint1AngleError)) * -Math.Sign(joint1AngleError) : joint1AngleError;
-
-                    float joint2AngleError = joint2TargetAngle - joint2Angle;
-                    joint2AngleError = Math.Abs(joint2AngleError) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(joint2AngleError)) * -Math.Sign(joint2AngleError) : joint2AngleError;
-
-                    float eeYawAngleError = eeYawTargetAngle - eeYawAngle;
-                    eeYawAngleError = Math.Abs(eeYawAngleError) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(eeYawAngleError)) * -Math.Sign(eeYawAngleError) : eeYawAngleError;
-
-                    float eePitchAngleError = eePitchTargetAngle - eePitchAngle;
-                    eePitchAngleError = Math.Abs(eePitchAngleError) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(eePitchAngleError)) * -Math.Sign(eePitchAngleError) : eePitchAngleError;
-
-                    float eeRollAngleError = eeRollTargetAngle - eeRollAngle;
-                    eeRollAngleError = Math.Abs(eeRollAngleError) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(eeRollAngleError)) * -Math.Sign(eeRollAngleError) : eeRollAngleError;
-
-                    if (!float.IsNaN(joint0AngleError) && !float.IsNaN(joint1AngleError) && !float.IsNaN(joint2AngleError) && !float.IsNaN(eeYawAngleError) && !float.IsNaN(eePitchAngleError) && !float.IsNaN(eeRollAngleError))
-                    {
-                        joint0Rotor.TargetVelocityRad = joint0RotorInv ? -(speed * joint0AngleError) : (speed * joint0AngleError);
-
-                        joint1Rotor.TargetVelocityRad = joint1RotorInv ? -(speed * joint1AngleError) : (speed * joint1AngleError);
-
-                        joint2Rotor.TargetVelocityRad = joint2RotorInv ? -(speed * joint2AngleError) : (speed * joint2AngleError);
-
-                        eeYawRotor.TargetVelocityRad = eeYawRotorInv ? -(speed * eeYawAngleError) : (speed * eeYawAngleError);
-
-                        eePitchHinge.TargetVelocityRad = eePitchHingeInv ? -(speed * eePitchAngleError) : (speed * eePitchAngleError);
-
-                        eeRollRotor.TargetVelocityRad = eeRollRotorInv ? -(speed * eeRollAngleError) : (speed * eeRollAngleError);
-
-                    }
-                    else
-                    {
-                        joint0Rotor.TargetVelocityRad = 0;
-
-                        joint1Rotor.TargetVelocityRad = 0;
-
-                        joint2Rotor.TargetVelocityRad = 0;
-
-                        eeYawRotor.TargetVelocityRad = 0;
-
-                        eePitchHinge.TargetVelocityRad = 0;
-
-                        eeRollRotor.TargetVelocityRad = 0;
-                    }
-
-                }
-                else
-                {
-                    if (controller.MoveIndicator.X != 0)
-                    {
-                        joint0Rotor.TargetVelocityRad = 0.1f * speed * controller.MoveIndicator.X;
-                    }
-                    else
-                    {
-                        joint0Rotor.TargetVelocityRad = 0;
-                    }
-
-                    if (controller.MoveIndicator.Y != 0)
-                    {
-                        targetCoord.Y += sensitivity * controller.MoveIndicator.Y;
-                    }
-
-                    if (controller.MoveIndicator.Z != 0)
-                    {
-                        targetCoord.Z += sensitivity * controller.MoveIndicator.Z;
-                    }
-
-                    float targetDistance = targetCoord.Length();
-
-                    if (targetDistance > maxTargetDistance || targetDistance < minTargetDistance)
-                    {
-                        OOB = true;
-                        goto OutOfBounds;
-                    }
-
-                    float X = ((targetDistance * targetDistance) - (seg1Length * seg1Length) + (seg0Length * seg0Length)) / (2 * targetDistance);
-                    float Y = (float)Math.Sqrt((seg0Length * seg0Length) - (X * X));
-
-                    joint1TargetAngle = (float)Math.Atan2(Y, X);
-                    if (joint1TargetAngle < joint1LowerLimit || joint1TargetAngle > joint1UpperLimit)
-                    {
-                        OOB = true;
-                        goto OutOfBounds;
-                    }
-                    joint2TargetAngle = (float)Math.Atan2((0 - Y), (targetDistance - X)) - joint1TargetAngle;
-                    if (joint2TargetAngle < joint2LowerLimit || joint2TargetAngle > joint2UpperLimit)
-                    {
-                        OOB = true;
-                        goto OutOfBounds;
-                    }
-
-                    Matrix H0 = Matrix.CreateRotationY(joint0Angle);
-                    Matrix H1 = Matrix.CreateRotationX(joint1TargetAngle);
-                    Matrix H2 = Matrix.CreateRotationX(joint2TargetAngle);
-                    H2.Translation = seg0Vector;
-                    Matrix H3 = Matrix.CreateRotationX(-(float)Math.PI / 2);
-                    H3.Translation = seg1Vector;
-
-                    Matrix HT = H3 * H2 * H1;
-
-                    Matrix R0_base = Matrix.CreateRotationY(targetYaw_base);
-                    Matrix R1_base = Matrix.CreateRotationX(targetPitch_base);
-                    Matrix R2_base = Matrix.CreateRotationZ(targetRoll_base);
-                    Matrix RT_base = R2_base * R1_base * R0_base;
-                    Matrix RT_ee = RT_base * Matrix.Transpose(HT.GetOrientation());
-                    float targetPitch_ee = (float)Math.Asin(-RT_ee.M32);
-                    float targetYaw_ee;
-                    float targetRoll_ee;
-                    if (Math.Round(RT_ee.M32, 2) == -1)
-                    {
-                        targetRoll_ee = 0;
-                        targetYaw_ee = (float)Math.Atan2(RT_ee.M21, RT_ee.M11);
-                    }
-                    else if (Math.Round(RT_ee.M32, 2) == 1)
-                    {
-                        targetRoll_ee = 0;
-                        targetYaw_ee = (float)Math.Atan2(-RT_ee.M21, RT_ee.M11);
-                    }
-                    else
-                    {
-                        targetRoll_ee = (float)Math.Atan2(RT_ee.M12, RT_ee.M22);
-                        targetYaw_ee = (float)Math.Atan2(RT_ee.M31, RT_ee.M33);
-                    }
-
-                    eeYawTargetAngle = targetYaw_ee;
-                    if (eeYawTargetAngle < eeYawLowerLimit || eeYawTargetAngle > eeYawUpperLimit)
-                    {
-                        OOB = true;
-                        goto OutOfBounds;
-                    }
-                    eePitchTargetAngle = targetPitch_ee;
-                    if (eePitchTargetAngle < eePitchLowerLimit || eePitchTargetAngle > eePitchUpperLimit)
-                    {
-                        OOB = true;
-                        goto OutOfBounds;
-                    }
-                    eeRollTargetAngle = targetRoll_ee;
-                    if (eeRollTargetAngle < eeRollLowerLimit || eeRollTargetAngle > eeRollUpperLimit)
-                    {
-                        OOB = true;
-                        goto OutOfBounds;
-                    }
-
-                    targetCoordPrev = targetCoord;
-
-                    OutOfBounds:
-
-                    if (OOB)
-                    {
-                        program.Echo("OOB");
-                        targetCoord = targetCoordPrev;
-                        OOB = false;
-                    }
-
-                    float joint1AngleError = joint1TargetAngle - joint1Angle;
-                    joint1AngleError = Math.Abs(joint1AngleError) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(joint1AngleError)) * -Math.Sign(joint1AngleError) : joint1AngleError;
-
-                    float joint2AngleError = joint2TargetAngle - joint2Angle;
-                    joint2AngleError = Math.Abs(joint2AngleError) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(joint2AngleError)) * -Math.Sign(joint2AngleError) : joint2AngleError;
-
-                    float eeYawAngleError = eeYawTargetAngle - eeYawAngle;
-                    eeYawAngleError = Math.Abs(eeYawAngleError) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(eeYawAngleError)) * -Math.Sign(eeYawAngleError) : eeYawAngleError;
-
-                    float eePitchAngleError = eePitchTargetAngle - eePitchAngle;
-                    eePitchAngleError = Math.Abs(eePitchAngleError) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(eePitchAngleError)) * -Math.Sign(eePitchAngleError) : eePitchAngleError;
-
-                    float eeRollAngleError = eeRollTargetAngle - eeRollAngle;
-                    eeRollAngleError = Math.Abs(eeRollAngleError) > (float)Math.PI ? (2 * (float)Math.PI - Math.Abs(eeRollAngleError)) * -Math.Sign(eeRollAngleError) : eeRollAngleError;
-
-                    if (!float.IsNaN(joint1AngleError) && !float.IsNaN(joint2AngleError) && !float.IsNaN(eeYawAngleError) && !float.IsNaN(eePitchAngleError) && !float.IsNaN(eeRollAngleError))
-                    {
-                        joint1Rotor.TargetVelocityRad = joint1RotorInv ? -(speed * joint1AngleError) : (speed * joint1AngleError);
-
-                        joint2Rotor.TargetVelocityRad = joint2RotorInv ? -(speed * joint2AngleError) : (speed * joint2AngleError);
-
-                        eeYawRotor.TargetVelocityRad = eeYawRotorInv ? -(speed * eeYawAngleError) : (speed * eeYawAngleError);
-
-                        eePitchHinge.TargetVelocityRad = eePitchHingeInv ? -(speed * eePitchAngleError) : (speed * eePitchAngleError);
-
-                        eeRollRotor.TargetVelocityRad = eeRollRotorInv ? -(speed * eeRollAngleError) : (speed * eeRollAngleError);
-
-                    }
-                    else
-                    {
-                        joint1Rotor.TargetVelocityRad = 0;
-
-                        joint2Rotor.TargetVelocityRad = 0;
-
-                        eeYawRotor.TargetVelocityRad = 0;
-
-                        eePitchHinge.TargetVelocityRad = 0;
-
-                        eeRollRotor.TargetVelocityRad = 0;
-                    }
-                }
+            public void LockEEO(Matrix baseEEO)
+            {
+                Quaternion q0 = Quaternion.CreateFromAxisAngle(baseEEO.Up, _eeYawJoint.CurrentAngle);
+                Quaternion q1 = Quaternion.CreateFromAxisAngle(baseEEO.Right, _eePitchJoint.CurrentAngle);
+                Quaternion q2 = Quaternion.CreateFromAxisAngle(baseEEO.Backward, _eeRollJoint.CurrentAngle);
+                Quaternion qT = q0 * q1 * q2;
+                Matrix currentEEO_base = Matrix.Transform(baseEEO.GetOrientation(), qT);
+                _targetEEO_base = currentEEO_base;
             }
         }
     }
