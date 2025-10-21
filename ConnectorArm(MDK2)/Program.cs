@@ -34,7 +34,7 @@ namespace IngameScript
 
         public Program()
         {
-            Runtime.UpdateFrequency = UpdateFrequency.None;
+            Runtime.UpdateFrequency = UpdateFrequency.Update1;
             GTS = GridTerminalSystem;
             IGCS = IGC;
             MePB = Me;
@@ -56,6 +56,7 @@ namespace IngameScript
             {
                 //_systemCoordinator.Command(argument);
             }
+            DebugDraw.RemoveAll();
             _systemCoordinator.Run();
         }
     }

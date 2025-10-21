@@ -34,7 +34,7 @@ namespace IngameScript
             public SystemCoordinator()
             {
                 _controller = GTS.GetBlockWithName("Arm Controller") as IMyShipController;
-                CraneArm = new CraneArm(1f, 1f, false, 10f, 10f);
+                CraneArm = new CraneArm(1f, 1f, false);
                 UserInput = new UserInput(_controller);
             }
 
