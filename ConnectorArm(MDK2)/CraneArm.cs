@@ -93,16 +93,22 @@ namespace IngameScript
                     { J2[0], J2[1], J2[2], J2[3], J2[4], J2[5] },
                 };
 
-                for (int i = 0; i < 3; i++)
-                {
-                    DebugEcho("\n");
-                    for (int j = 0; j < 6; j++)
-                    {
-                        DebugEcho(J[i, j].ToString("F3") + " ");
-                    }
-                }
-
                 double[,] J_pseudoInv = MyMath.DampedPseudoInverse(J, 0.1);
+
+                double[] inputSignal = new double[6];
+
+                if (input.WPress) inputSignal[2] = -0.1f;
+                if (input.SPress) inputSignal[2] = 0.1f;
+                if (input.APress) inputSignal[0] = -0.1f;
+                if (input.DPress) inputSignal[0] = 0.1f;
+                if (input.SpacePress) inputSignal[1] = 0.1f;
+                if (input.CPress) inputSignal[1] = -0.1f;
+
+                double[] outputSignal = MyMath.MultiplyVectorMatrix(inputSignal, J_pseudoInv);
+
+                _joint0.Velocity = (float)outputSignal[0];
+                _joint1.Velocity = (float)outputSignal[1];
+                _joint2.Velocity = (float)outputSignal[2];
             }
         }
     }
