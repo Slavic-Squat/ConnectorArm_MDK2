@@ -74,7 +74,7 @@ namespace IngameScript
                 Matrix HT = H5 * H4 * H3 * H2 * H1 * H0;
                 Vector3 currentCoord = HT.Translation;
 
-                DebugDraw.DrawMatrix(HT * _joint0.RotorBlock.WorldMatrix, length: 2f);
+                //DebugDraw.DrawMatrix(HT * _joint0.RotorBlock.WorldMatrix, length: 2f);
 
                 Vector3 J0v = Vector3.Cross(H0.Up, currentCoord - H0.Translation);
                 Vector3 J0w = H0.Up;
