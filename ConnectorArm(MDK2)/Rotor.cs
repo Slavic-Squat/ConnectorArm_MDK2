@@ -98,11 +98,11 @@ namespace IngameScript
                 {
                     if (Velocity > 0)
                     {
-                        return CurrentAngle >= MaxAngle;
+                        return CurrentAngle >= MaxAngle - MathHelper.EPSILON;
                     }
                     else if (Velocity < 0)
                     {
-                        return CurrentAngle <= MinAngle;
+                        return CurrentAngle <= MinAngle + MathHelper.EPSILON;
                     }
                     else
                     {
