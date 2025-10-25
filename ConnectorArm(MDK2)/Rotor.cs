@@ -91,6 +91,25 @@ namespace IngameScript
                     RotorBlock.TargetVelocityRad = IsInverted ? value : -value;
                 }
             }
+
+            public bool IsMaxedOut
+            {
+                get
+                {
+                    if (Velocity > 0)
+                    {
+                        return CurrentAngle >= MaxAngle;
+                    }
+                    else if (Velocity < 0)
+                    {
+                        return CurrentAngle <= MinAngle;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
             public IMyMotorStator RotorBlock { get; private set; }
             public Rotor(string blockName)
             {

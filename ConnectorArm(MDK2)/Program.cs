@@ -54,7 +54,7 @@ namespace IngameScript
         {
             if (argument != null)
             {
-                //_systemCoordinator.Command(argument);
+                _systemCoordinator.Command(argument);
             }
             DebugDraw.RemoveAll();
             _systemCoordinator.Run();

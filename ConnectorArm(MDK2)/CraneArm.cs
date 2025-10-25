@@ -119,28 +119,46 @@ namespace IngameScript
 
                 double[] inputSignal = new double[6];
 
-                if (input.WPress) inputSignal[2] = -0.1f;
-                if (input.SPress) inputSignal[2] = 0.1f;
-                if (input.APress) inputSignal[0] = -0.1f;
-                if (input.DPress) inputSignal[0] = 0.1f;
-                if (input.SpacePress) inputSignal[1] = 0.1f;
-                if (input.CPress) inputSignal[1] = -0.1f;
+                if (ArmControlled)
+                {
+                    Vector3 trans0 = Vector3.Zero;
+                    Vector3 trans1 = Vector3.Zero;
+                    Vector3 trans2 = Vector3.Zero;
 
-                Vector3 rot0 = Vector3.Zero;
-                Vector3 rot1 = Vector3.Zero;
-                Vector3 rot2 = Vector3.Zero;
+                    if (input.WPress) trans0 = -1f * H0_5.Backward;
+                    if (input.SPress) trans0 = 1f * H0_5.Backward;
+                    if (input.APress) trans1 = -1f * H0_5.Right;
+                    if (input.DPress) trans1 = 1f * H0_5.Right;
+                    if (input.SpacePress) trans2 = 1f * H0_5.Up;
+                    if (input.CPress) trans2 = -1f * H0_5.Up;
 
-                rot0 = input.MouseInput.X * J3w;
-                rot1 = input.MouseInput.Y * J4w;
+                    Vector3 transInput = trans0 + trans1 + trans2;
 
-                if (input.QPress) rot2 = 1f * J5w;
-                if (input.EPress) rot2 = -1f * J5w;
+                    inputSignal[0] = transInput.X;
+                    inputSignal[1] = transInput.Y;
+                    inputSignal[2] = transInput.Z;
+                }
 
-                Vector3 rotInput = rot0 + rot1 + rot2;
-                inputSignal[3] = rotInput.X;
-                inputSignal[4] = rotInput.Y;
-                inputSignal[5] = rotInput.Z;
+                if (EEControlled)
+                {
+                    Vector3 rot0 = Vector3.Zero;
+                    Vector3 rot1 = Vector3.Zero;
+                    Vector3 rot2 = Vector3.Zero;
 
+                    if (input.WPress) rot1 = 1f * H0_5.Right;
+                    if (input.SPress) rot1 = -1f * H0_5.Right;
+                    if (input.APress) rot0 = 1f * H0_5.Up;
+                    if (input.DPress) rot0 = -1f * H0_5.Up;
+                    if (input.QPress) rot2 = 1f * H0_5.Backward;
+                    if (input.EPress) rot2 = -1f * H0_5.Backward;
+
+                    Vector3 rotInput = rot0 + rot1 + rot2;
+
+                    inputSignal[3] = rotInput.X;
+                    inputSignal[4] = rotInput.Y;
+                    inputSignal[5] = rotInput.Z;
+                }
+                
                 double[] outputSignal = MyMath.MultiplyVectorMatrix(inputSignal, J_pseudoInv);
 
                 _joint0.Velocity = (float)outputSignal[0];
@@ -149,6 +167,23 @@ namespace IngameScript
                 _eeYawJoint.Velocity = (float)outputSignal[3];
                 _eePitchJoint.Velocity = (float)outputSignal[4];
                 _eeRollJoint.Velocity = (float)outputSignal[5];
+
+                if (_joint0.IsMaxedOut || _joint1.IsMaxedOut || _joint2.IsMaxedOut || _eeYawJoint.IsMaxedOut || _eePitchJoint.IsMaxedOut || _eeRollJoint.IsMaxedOut)
+                {
+                    _joint0.Velocity = 0;
+                    _joint1.Velocity = 0;
+                    _joint2.Velocity = 0;
+                    _eeYawJoint.Velocity = 0;
+                    _eePitchJoint.Velocity = 0;
+                    _eeRollJoint.Velocity = 0;
+                }
+            }
+
+            public bool ToggleControlMode()
+            {
+                ArmControlled = !ArmControlled;
+                EEControlled = !EEControlled;
+                return true;
             }
         }
     }
