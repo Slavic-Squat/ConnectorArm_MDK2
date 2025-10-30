@@ -103,8 +103,8 @@ namespace IngameScript
 
             public static double[,] DampedPseudoInverse(double[,] J, double lambda = 0.01)
             {
-                int m = J.GetLength(0); // rows (task space DOF)
-                int n = J.GetLength(1); // cols (joint DOF)
+                int m = J.GetLength(0); // rows
+                int n = J.GetLength(1); // cols
 
                 // Compute JJ^T
                 double[,] JJT = MultiplyMatrices(J, Transpose(J));
@@ -118,6 +118,25 @@ namespace IngameScript
 
                 // Compute J^T * (JJ^T + λ²I)^(-1)
                 return MultiplyMatrices(Transpose(J), JJT_inv);
+            }
+
+            public static double[,] DampedPseudoInverseAlt(double[,] J, double lambda = 0.01)
+            {
+                int m = J.GetLength(0); // rows
+                int n = J.GetLength(1); // cols
+
+                // Compute J^T*J
+                double[,] JTJ = MultiplyMatrices(Transpose(J), J);
+
+                // Add damping: J^T*J + λ²I
+                for (int i = 0; i < n; i++)
+                    JTJ[i, i] += lambda * lambda;
+
+                // Invert (J^T*J + λ²I)
+                double[,] JTJ_inv = InverseGaussJordan(JTJ);
+
+                // Compute (J^T*J + λ²I)^(-1)*J^T
+                return MultiplyMatrices(JTJ_inv, Transpose(J));
             }
 
             // ============================================================================

@@ -33,15 +33,10 @@ namespace IngameScript
             private Rotor _eePitchJoint;
             private Rotor _eeYawJoint;
             private Rotor _eeRollJoint;
-
-            private float _sensitivity;
-            private float _speed;
-            private bool _cylindricalMode;
-
             public bool EEControlled { get; private set; } = false;
             public bool ArmControlled { get; private set; } = true;
 
-            public CraneArm(float sensitivity, float speed, bool cylindricalMode)
+            public CraneArm()
             {
                 _joint0 = new Rotor("Joint0");
                 _joint1 = new Rotor("Joint1");
@@ -49,10 +44,6 @@ namespace IngameScript
                 _eePitchJoint = new Rotor("EE Pitch Joint");
                 _eeYawJoint = new Rotor("EE Yaw Joint");
                 _eeRollJoint = new Rotor("EE Roll Joint");
-
-                _sensitivity = sensitivity;
-                _speed = speed;
-                _cylindricalMode = cylindricalMode;
 
                 _seg0Vector = new Vector3(2.5f, 2.5f, 0);
                 _seg1Vector = new Vector3(-2.5f, 0, -10);

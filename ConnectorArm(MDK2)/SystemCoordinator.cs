@@ -55,7 +55,7 @@ namespace IngameScript
 
             private void Init()
             {
-                CraneArm = new CraneArm(1f, 1f, false);
+                CraneArm = new CraneArm();
                 UserInput = new UserInput(_controller);
                 CommandHandler = new CommandHandler(MePB, _commands);
 
