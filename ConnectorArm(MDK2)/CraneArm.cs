@@ -33,8 +33,7 @@ namespace IngameScript
             private Rotor _eePitchJoint;
             private Rotor _eeYawJoint;
             private Rotor _eeRollJoint;
-            public bool EEControlled { get; private set; } = false;
-            public bool ArmControlled { get; private set; } = true;
+            public bool OCtrl { get; private set; } = false;
 
             public CraneArm()
             {
@@ -110,7 +109,7 @@ namespace IngameScript
 
                 double[] inputSignal = new double[6];
 
-                if (ArmControlled)
+                if (!OCtrl)
                 {
                     Vector3 trans0 = Vector3.Zero;
                     Vector3 trans1 = Vector3.Zero;
@@ -129,8 +128,7 @@ namespace IngameScript
                     inputSignal[1] = transInput.Y;
                     inputSignal[2] = transInput.Z;
                 }
-
-                if (EEControlled)
+                else
                 {
                     Vector3 rot0 = Vector3.Zero;
                     Vector3 rot1 = Vector3.Zero;
@@ -172,8 +170,7 @@ namespace IngameScript
 
             public bool ToggleControlMode()
             {
-                ArmControlled = !ArmControlled;
-                EEControlled = !EEControlled;
+                OCtrl = !OCtrl;
                 return true;
             }
         }
