@@ -101,7 +101,7 @@ namespace IngameScript
             // Formula: J† = J^T(JJ^T + λ²I)^(-1)
             // Use when: Any size, especially near singularities
 
-            public static double[,] DampedPseudoInverse(double[,] J, double lambda = 0.01)
+            public static double[,] DampedPseudoInverseWide(double[,] J, double lambda = 0.01)
             {
                 int m = J.GetLength(0); // rows
                 int n = J.GetLength(1); // cols
@@ -120,7 +120,7 @@ namespace IngameScript
                 return MultiplyMatrices(Transpose(J), JJT_inv);
             }
 
-            public static double[,] DampedPseudoInverseAlt(double[,] J, double lambda = 0.01)
+            public static double[,] DampedPseudoInverseTall(double[,] J, double lambda = 0.01)
             {
                 int m = J.GetLength(0); // rows
                 int n = J.GetLength(1); // cols
@@ -137,6 +137,81 @@ namespace IngameScript
 
                 // Compute (J^T*J + λ²I)^(-1)*J^T
                 return MultiplyMatrices(JTJ_inv, Transpose(J));
+            }
+
+            public static double[,] DampedWeightedPseudoInverseTall(double[,] J, double[] taskWeights = null, double[] jointWeights = null, double lambda = 0.01)
+            {
+                int m = J.GetLength(0); // rows
+                int n = J.GetLength(1); // cols
+
+                // Create weight matrices
+                double[,] Wt = new double[m, m];
+
+                if (taskWeights == null)
+                {
+                    taskWeights = new double[m];
+                    for (int i = 0; i < m; i++)
+                        taskWeights[i] = 1.0;
+                }
+                if (jointWeights == null)
+                {
+                    jointWeights = new double[n];
+                    for (int i = 0; i < n; i++)
+                        jointWeights[i] = 1.0;
+                }
+
+                for (int i = 0; i < m; i++)
+                    Wt[i, i] = taskWeights[i];
+
+                // Compute J^T * Wt * J
+                double[,] JT_Wt_J = MultiplyMatrices(MultiplyMatrices(Transpose(J), Wt), J);
+
+                // Add damping: J^T * Wt * J + λ² * Wj
+                for (int i = 0; i < n; i++)
+                    JT_Wt_J[i, i] += lambda * lambda * jointWeights[i];
+
+                // Invert
+                double[,] invTerm = InverseGaussJordan(JT_Wt_J);
+
+                // Compute weighted pseudo-inverse: invTerm * J^T * Wt
+                return MultiplyMatrices(MultiplyMatrices(invTerm, Transpose(J)), Wt);
+            }
+
+            public static double[,] DampedWeightedPseudoInverseWide(double[,] J, double[] taskWeights = null, double[] jointWeights = null, double lambda = 0.01)
+            {
+                int m = J.GetLength(0); // rows
+                int n = J.GetLength(1); // cols
+
+                // Create weight matrices
+                double[,] Wj_inv = new double[n, n];
+
+                if (taskWeights == null)
+                {
+                    taskWeights = new double[m];
+                    for (int i = 0; i < m; i++)
+                        taskWeights[i] = 1.0;
+                }
+                if (jointWeights == null)
+                {
+                    jointWeights = new double[n];
+                    for (int i = 0; i < n; i++)
+                        jointWeights[i] = 1.0;
+                }
+                for (int j = 0; j < n; j++)
+                    Wj_inv[j, j] = 1 / jointWeights[j];
+
+                // Compute J * Wj_inv * J^T
+                double[,] J_Wji_JT = MultiplyMatrices(MultiplyMatrices(J, Wj_inv), Transpose(J));
+
+                // Add damping: J * Wj_inv * J^T + λ² * Wt_inv
+                for (int i = 0; i < m; i++)
+                    J_Wji_JT[i, i] += lambda * lambda * 1 / taskWeights[i];
+
+                // Invert
+                double[,] invTerm = InverseGaussJordan(J_Wji_JT);
+
+                // Compute weighted pseudo-inverse: Wj_inv * J^T * invTerm
+                return MultiplyMatrices(MultiplyMatrices(Wj_inv, Transpose(J)), invTerm);
             }
 
             // ============================================================================

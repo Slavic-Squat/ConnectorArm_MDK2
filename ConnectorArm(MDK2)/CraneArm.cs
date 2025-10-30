@@ -30,9 +30,12 @@ namespace IngameScript
             private Vector3 _seg1Vector;
             private Rotor _joint2;
             private Vector3 _seg2Vector;
-            private Rotor _eePitchJoint;
-            private Rotor _eeYawJoint;
-            private Rotor _eeRollJoint;
+            private Rotor _joint3;
+            private Vector3 _seg3Vector;
+            private Rotor _joint4;
+            private Vector3 _seg4Vector;
+            private Rotor _joint5;
+            private Vector3 _seg5Vector;
             public bool OCtrl { get; private set; } = false;
 
             public CraneArm()
@@ -40,13 +43,15 @@ namespace IngameScript
                 _joint0 = new Rotor("Joint0");
                 _joint1 = new Rotor("Joint1");
                 _joint2 = new Rotor("Joint2");
-                _eePitchJoint = new Rotor("EE Pitch Joint");
-                _eeYawJoint = new Rotor("EE Yaw Joint");
-                _eeRollJoint = new Rotor("EE Roll Joint");
+                _joint3 = new Rotor("Joint3");
+                _joint4 = new Rotor("Joint4");
+                _joint5 = new Rotor("Joint5");
 
                 _seg0Vector = new Vector3(2.5f, 2.5f, 0);
                 _seg1Vector = new Vector3(-2.5f, 0, -10);
                 _seg2Vector = new Vector3(0, 0, -10);
+                _seg3Vector = new Vector3(0, 0, -2.5f);
+                _seg4Vector = new Vector3(0, 0, -2.5f);
             }
 
             public void Control(UserInput input)
@@ -56,10 +61,12 @@ namespace IngameScript
                 H1.Translation = _seg0Vector;
                 Matrix H2 = Matrix.CreateRotationX(_joint2.CurrentAngle);
                 H2.Translation = _seg1Vector;
-                Matrix H3 = Matrix.CreateRotationY(_eeYawJoint.CurrentAngle);
+                Matrix H3 = Matrix.CreateRotationY(_joint3.CurrentAngle);
                 H3.Translation = _seg2Vector;
-                Matrix H4 = Matrix.CreateRotationX(_eePitchJoint.CurrentAngle);
-                Matrix H5 = Matrix.CreateRotationZ(_eeRollJoint.CurrentAngle);
+                Matrix H4 = Matrix.CreateRotationX(_joint4.CurrentAngle);
+                H4.Translation = _seg3Vector;
+                Matrix H5 = Matrix.CreateRotationZ(_joint5.CurrentAngle);
+                H5.Translation = _seg4Vector;
 
                 Matrix HT = H5 * H4 * H3 * H2 * H1 * H0;
                 Vector3 currentCoord = HT.Translation;
@@ -95,76 +102,87 @@ namespace IngameScript
                 Vector3 J5w = H0_5.Backward;
                 double[] J5 = new double[6] { J5v.X, J5v.Y, J5v.Z, J5w.X, J5w.Y, J5w.Z };
 
-                double[,] J = new double[6, 6]
+                double[,] J = new double[6, 6] 
                 {
-                    { J0[0], J0[1], J0[2], J0[3], J0[4], J0[5] },
-                    { J1[0], J1[1], J1[2], J1[3], J1[4], J1[5] },
-                    { J2[0], J2[1], J2[2], J2[3], J2[4], J2[5] },
-                    { J3[0], J3[1], J3[2], J3[3], J3[4], J3[5] },
-                    { J4[0], J4[1], J4[2], J4[3], J4[4], J4[5] },
-                    { J5[0], J5[1], J5[2], J5[3], J5[4], J5[5] }
+                    { J0[0], J1[0], J2[0], J3[0], J4[0], J5[0] },
+                    { J0[1], J1[1], J2[1], J3[1], J4[1], J5[1] },
+                    { J0[2], J1[2], J2[2], J3[2], J4[2], J5[2] },
+                    { J0[3], J1[3], J2[3], J3[3], J4[3], J5[3] },
+                    { J0[4], J1[4], J2[4], J3[4], J4[4], J5[4] },
+                    { J0[5], J1[5], J2[5], J3[5], J4[5], J5[5] }
                 };
 
-                double[,] J_pseudoInv = MyMath.DampedPseudoInverse(J, 0.1);
 
-                double[] inputSignal = new double[6];
+                double[] outputSignal;
 
                 if (!OCtrl)
                 {
+                    double[] taskWeights = new double[6] { 1, 1, 1, 1, 1, 1 };
+                    double[] jointWeights = new double[6] { 1, 1, 1, 1, 1, 1 };
+                    double[,] J_pseudoInv = MyMath.DampedWeightedPseudoInverseTall(J, taskWeights, jointWeights, 0.1);
+
                     Vector3 trans0 = Vector3.Zero;
                     Vector3 trans1 = Vector3.Zero;
                     Vector3 trans2 = Vector3.Zero;
 
-                    if (input.WPress) trans0 = -1f * H0_5.Backward;
-                    if (input.SPress) trans0 = 1f * H0_5.Backward;
-                    if (input.APress) trans1 = -1f * H0_5.Right;
-                    if (input.DPress) trans1 = 1f * H0_5.Right;
-                    if (input.SpacePress) trans2 = 1f * H0_5.Up;
-                    if (input.CPress) trans2 = -1f * H0_5.Up;
+                    if (input.WPress) trans0 = -1f * HT.Backward;
+                    if (input.SPress) trans0 = 1f * HT.Backward;
+                    if (input.APress) trans1 = -1f * HT.Right;
+                    if (input.DPress) trans1 = 1f * HT.Right;
+                    if (input.SpacePress) trans2 = 1f * HT.Up;
+                    if (input.CPress) trans2 = -1f * HT.Up;
 
                     Vector3 transInput = trans0 + trans1 + trans2;
 
+                    double[] inputSignal = new double[6];
                     inputSignal[0] = transInput.X;
                     inputSignal[1] = transInput.Y;
                     inputSignal[2] = transInput.Z;
+
+                    outputSignal = MyMath.MultiplyMatrixVector(J_pseudoInv, inputSignal);
                 }
                 else
                 {
+                    double[] taskWeights = new double[6] { 1, 1, 1, 1, 1, 1 };
+                    double[] jointWeights = new double[6] { 1, 1, 1, 1, 1, 1 };
+                    double[,] J_pseudoInv = MyMath.DampedWeightedPseudoInverseTall(J, taskWeights, jointWeights, 0.1);
+
                     Vector3 rot0 = Vector3.Zero;
                     Vector3 rot1 = Vector3.Zero;
                     Vector3 rot2 = Vector3.Zero;
 
-                    if (input.WPress) rot1 = 1f * H0_5.Right;
-                    if (input.SPress) rot1 = -1f * H0_5.Right;
-                    if (input.APress) rot0 = 1f * H0_5.Up;
-                    if (input.DPress) rot0 = -1f * H0_5.Up;
-                    if (input.QPress) rot2 = 1f * H0_5.Backward;
-                    if (input.EPress) rot2 = -1f * H0_5.Backward;
+                    if (input.WPress) rot1 = 1f * HT.Right;
+                    if (input.SPress) rot1 = -1f * HT.Right;
+                    if (input.APress) rot0 = 1f * HT.Up;
+                    if (input.DPress) rot0 = -1f * HT.Up;
+                    if (input.QPress) rot2 = 1f * HT.Backward;
+                    if (input.EPress) rot2 = -1f * HT.Backward;
 
                     Vector3 rotInput = rot0 + rot1 + rot2;
 
+                    double[] inputSignal = new double[6];
                     inputSignal[3] = rotInput.X;
                     inputSignal[4] = rotInput.Y;
                     inputSignal[5] = rotInput.Z;
+
+                    outputSignal = MyMath.MultiplyMatrixVector(J_pseudoInv, inputSignal);
                 }
-                
-                double[] outputSignal = MyMath.MultiplyVectorMatrix(inputSignal, J_pseudoInv);
 
                 _joint0.Velocity = (float)outputSignal[0];
                 _joint1.Velocity = (float)outputSignal[1];
                 _joint2.Velocity = (float)outputSignal[2];
-                _eeYawJoint.Velocity = (float)outputSignal[3];
-                _eePitchJoint.Velocity = (float)outputSignal[4];
-                _eeRollJoint.Velocity = (float)outputSignal[5];
+                _joint3.Velocity = (float)outputSignal[3];
+                _joint4.Velocity = (float)outputSignal[4];
+                _joint5.Velocity = (float)outputSignal[5];
 
-                if (_joint0.IsMaxedOut || _joint1.IsMaxedOut || _joint2.IsMaxedOut || _eeYawJoint.IsMaxedOut || _eePitchJoint.IsMaxedOut || _eeRollJoint.IsMaxedOut)
+                if (_joint0.IsMaxedOut || _joint1.IsMaxedOut || _joint2.IsMaxedOut || _joint3.IsMaxedOut || _joint4.IsMaxedOut || _joint5.IsMaxedOut)
                 {
                     _joint0.Velocity = 0;
                     _joint1.Velocity = 0;
                     _joint2.Velocity = 0;
-                    _eeYawJoint.Velocity = 0;
-                    _eePitchJoint.Velocity = 0;
-                    _eeRollJoint.Velocity = 0;
+                    _joint3.Velocity = 0;
+                    _joint4.Velocity = 0;
+                    _joint5.Velocity = 0;
                 }
             }
 
