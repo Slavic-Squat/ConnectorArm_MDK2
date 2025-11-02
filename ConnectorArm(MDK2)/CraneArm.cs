@@ -175,7 +175,7 @@ namespace IngameScript
                 _joint4.Velocity = (float)outputSignal[4];
                 _joint5.Velocity = (float)outputSignal[5];
 
-                if (_joint0.IsMaxedOut || _joint1.IsMaxedOut || _joint2.IsMaxedOut || _joint3.IsMaxedOut || _joint4.IsMaxedOut || _joint5.IsMaxedOut)
+                if (_joint0.IsSaturated || _joint1.IsSaturated || _joint2.IsSaturated || _joint3.IsSaturated || _joint4.IsSaturated || _joint5.IsSaturated)
                 {
                     _joint0.Velocity = 0;
                     _joint1.Velocity = 0;
