@@ -92,17 +92,19 @@ namespace IngameScript
                 }
             }
 
-            public bool IsMaxedOut
+            public bool IsMaxed => CurrentAngle >= MaxAngle - MathHelper.EPSILON;
+            public bool IsMinned => CurrentAngle <= MinAngle + MathHelper.EPSILON;
+            public bool IsSaturated
             {
                 get
                 {
                     if (Velocity > 0)
                     {
-                        return CurrentAngle >= MaxAngle - MathHelper.EPSILON;
+                        return IsMaxed;
                     }
                     else if (Velocity < 0)
                     {
-                        return CurrentAngle <= MinAngle + MathHelper.EPSILON;
+                        return IsMinned;
                     }
                     else
                     {
@@ -117,6 +119,14 @@ namespace IngameScript
                 if (RotorBlock == null)
                     throw new ArgumentException($"Rotor block '{blockName}' not found");
 
+                IsInverted = RotorBlock.CustomData.Contains("-Inverted");
+            }
+
+            public Rotor(IMyMotorStator rotorBlock)
+            {
+                if (rotorBlock == null)
+                    throw new ArgumentNullException("rotorBlock");
+                RotorBlock = rotorBlock;
                 IsInverted = RotorBlock.CustomData.Contains("-Inverted");
             }
         }
