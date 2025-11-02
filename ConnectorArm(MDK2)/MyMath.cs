@@ -214,6 +214,17 @@ namespace IngameScript
                 return MultiplyMatrices(MultiplyMatrices(Wj_inv, Transpose(J)), invTerm);
             }
 
+            public static double[,] NullSpaceProjector(double[,] J, double[,] J_pi)
+            {
+                // N = I - J†J
+                int n = J.GetLength(1); // cols
+                double[,] I = new double[n, n];
+                for (int i = 0; i < n; i++)
+                    I[i, i] = 1.0;
+                double[,] J_pi_J = MultiplyMatrices(J_pi, J);
+                return AddMatrices(I, MultiplyScalar(J_pi_J, -1.0));
+            }
+
             // ============================================================================
             // METHOD 3: QR DECOMPOSITION PSEUDO-INVERSE - Better Numerical Stability
             // ============================================================================
@@ -350,6 +361,30 @@ namespace IngameScript
                     }
                 }
 
+                return result;
+            }
+
+            public static double[,] MultiplyScalar(double[,] matrix, double scalar)
+            {
+                int rows = matrix.GetLength(0);
+                int cols = matrix.GetLength(1);
+                double[,] result = new double[rows, cols];
+                for (int i = 0; i < rows; i++)
+                    for (int j = 0; j < cols; j++)
+                        result[i, j] = matrix[i, j] * scalar;
+                return result;
+            }
+
+            public static double[,] AddMatrices(double[,] A, double[,] B)
+            {
+                int rows = A.GetLength(0);
+                int cols = A.GetLength(1);
+                if (rows != B.GetLength(0) || cols != B.GetLength(1))
+                    throw new ArgumentException("Matrix dimensions don't match for addition");
+                double[,] result = new double[rows, cols];
+                for (int i = 0; i < rows; i++)
+                    for (int j = 0; j < cols; j++)
+                        result[i, j] = A[i, j] + B[i, j];
                 return result;
             }
 
