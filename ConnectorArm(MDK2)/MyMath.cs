@@ -375,6 +375,15 @@ namespace IngameScript
                 return result;
             }
 
+            public static double[] MultiplyScalar(double[] vector, double scalar)
+            {
+                int length = vector.Length;
+                double[] result = new double[length];
+                for (int i = 0; i < length; i++)
+                    result[i] = vector[i] * scalar;
+                return result;
+            }
+
             public static double[,] AddMatrices(double[,] A, double[,] B)
             {
                 int rows = A.GetLength(0);

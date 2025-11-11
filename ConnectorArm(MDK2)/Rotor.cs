@@ -38,7 +38,7 @@ namespace IngameScript
                     {
                         minAngle = -RotorBlock.UpperLimitRad;
                     }
-                    return MiscUtilities.LoopInRange(minAngle, -(float)Math.PI, (float)Math.PI);
+                    return minAngle;
                 }
                 set
                 {
@@ -65,7 +65,7 @@ namespace IngameScript
                     {
                         maxAngle = -RotorBlock.LowerLimitRad;
                     }
-                    return MiscUtilities.LoopInRange(maxAngle, -(float)Math.PI, (float)Math.PI);
+                    return maxAngle;
                 }
                 set
                 {
@@ -79,7 +79,7 @@ namespace IngameScript
                     }
                 }
             }
-            public float CurrentAngle => MiscUtilities.LoopInRange(IsInverted ? RotorBlock.Angle : -RotorBlock.Angle, -(float)Math.PI, (float)Math.PI);
+            public float CurrentAngle => IsInverted ? RotorBlock.Angle : -RotorBlock.Angle;
             public float Velocity
             {
                 get
