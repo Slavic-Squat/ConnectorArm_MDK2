@@ -451,6 +451,56 @@ namespace IngameScript
 
                 return result;
             }
+
+            public static double[] MultiplyVectorVector(double[] a, double[] b)
+            {
+                if (a.Length != b.Length)
+                    throw new ArgumentException("Vectors must be the same length");
+                double[] result = new double[a.Length];
+                for (int i = 0; i < a.Length; i++)
+                    result[i] = a[i] * b[i];
+                return result;
+            }
+
+            public static double DotProduct(double[] a, double[] b)
+            {
+                if (a.Length != b.Length)
+                    throw new ArgumentException("Vectors must be the same length");
+                double result = 0;
+                for (int i = 0; i < a.Length; i++)
+                    result += a[i] * b[i];
+                return result;
+            }
+
+            public static double Norm(double[] vector)
+            {
+                double sum = 0;
+                for (int i = 0; i < vector.Length; i++)
+                {
+                    sum += vector[i] * vector[i];
+                }
+                return Math.Sqrt(sum);
+            }
+
+            public static double[] GetRow(double[,] matrix, int rowIndex)
+            {
+                int cols = matrix.GetLength(1);
+                double[] row = new double[cols];
+                for (int j = 0; j < cols; j++)
+                    row[j] = matrix[rowIndex, j];
+                return row;
+            }
+
+            public static double[] GetColumn(double[,] matrix, int colIndex)
+            {
+                int rows = matrix.GetLength(0);
+                double[] column = new double[rows];
+                for (int i = 0; i < rows; i++)
+                {
+                    column[i] = matrix[i, colIndex];
+                }
+                return column;
+            }
         }
     }
 }
