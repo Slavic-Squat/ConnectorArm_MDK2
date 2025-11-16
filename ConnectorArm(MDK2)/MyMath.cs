@@ -491,6 +491,15 @@ namespace IngameScript
                 return row;
             }
 
+            public static void SetRow(double[,] matrix, int rowIndex, double[] rowData)
+            {
+                int cols = matrix.GetLength(1);
+                if (rowData.Length != cols)
+                    throw new ArgumentException("Row data length does not match number of columns");
+                for (int j = 0; j < cols; j++)
+                    matrix[rowIndex, j] = rowData[j];
+            }
+
             public static double[] GetColumn(double[,] matrix, int colIndex)
             {
                 int rows = matrix.GetLength(0);
@@ -500,6 +509,17 @@ namespace IngameScript
                     column[i] = matrix[i, colIndex];
                 }
                 return column;
+            }
+
+            public static void SetColumn(double[,] matrix, int colIndex, double[] colData)
+            {
+                int rows = matrix.GetLength(0);
+                if (colData.Length != rows)
+                    throw new ArgumentException("Column data length does not match number of rows");
+                for (int i = 0; i < rows; i++)
+                {
+                    matrix[i, colIndex] = colData[i];
+                }
             }
         }
     }
